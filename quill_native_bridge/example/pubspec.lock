@@ -546,7 +546,7 @@ packages:
       path: "../../quill_native_bridge_linux"
       relative: true
     source: path
-    version: "0.0.1"
+    version: "0.0.2"
   quill_native_bridge_macos:
     dependency: "direct overridden"
     description:
@@ -574,7 +574,7 @@ packages:
       path: "../../quill_native_bridge_windows"
       relative: true
     source: path
-    version: "0.0.1"
+    version: "0.0.2"
   shelf:
     dependency: transitive
     description:

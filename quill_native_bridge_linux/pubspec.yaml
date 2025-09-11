@@ -27,8 +27,6 @@ dev_dependencies:
   build_runner: ^2.4.13
 
 flutter:
-  assets:
-  - assets/xclip
   plugin:
     implements: quill_native_bridge
     platforms:
