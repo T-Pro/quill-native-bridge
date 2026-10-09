@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+### 11.2.0
+
+- Updates the minimum supported SDK version to Flutter 3.44/Dart 3.12.
+- Migrates to built-in Kotlin.
+- Restores the default Linux platform implementation (uses bundled `xclip` binary, excluded on non-Linux platforms)
+
+## 11.1.0
+
+- **BREAKING CHANGE**: Removes the experimental Linux implementation to fix [#17](https://github.com/FlutterQuill/quill-native-bridge/issues/17). To add it back, add [quill_native_bridge_linux](https://pub.dev/packages/quill_native_bridge_linux) to your `pubspec.yaml`.
+
 ## 11.0.1
 
 - Adds `isAppleSafari` method to check whether the current web app is running on Safari browser.
