@@ -28,7 +28,8 @@ object ImageDecoderCompat {
             ImageDecoder.decodeBitmap(source)
         } else {
             // Backward compatibility with older versions
-            BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            // Full resolution is required for clipboard, so no inSampleSize.
+            BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, BitmapFactory.Options())
                 ?: throw IOException("Image could not be decoded using the `BitmapFactory.decodeByteArray`.")
         }
 
@@ -54,11 +55,16 @@ object ImageDecoderCompat {
                 "Input stream is null, the provider might have recently crashed."
             }.use { inputStream ->
                 val bitmap: Bitmap =
-                    BitmapFactory.decodeStream(inputStream)
+                    BitmapFactory.decodeStream(inputStream, null, BitmapFactory.Options())
                         ?: throw IOException("The image could not be decoded using the `BitmapFactory.decodeStream`.")
                 bitmap
             }
         }
 
-    fun isValidImage(imageBytes: ByteArray) = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size) != null
+    fun isValidImage(imageBytes: ByteArray): Boolean {
+        // Only read the image header, without allocating the full bitmap.
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, options)
+        return options.outWidth > 0 && options.outHeight > 0
+    }
 }
