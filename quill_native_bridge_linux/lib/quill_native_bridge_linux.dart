@@ -64,11 +64,13 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
     required String mimeType,
     required String xclipFilePath,
   }) async {
-    return (await Process.run(
-            xclipFilePath, ['-selection', 'clipboard', '-t', 'TARGETS', '-o']))
-        .stdout
-        .toString()
-        .contains(mimeType);
+    return (await Process.run(xclipFilePath, [
+      '-selection',
+      'clipboard',
+      '-t',
+      'TARGETS',
+      '-o',
+    ])).stdout.toString().contains(mimeType);
   }
 
   @override
@@ -88,16 +90,20 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
       if (!hasHtmlInClipboard) {
         return null;
       }
-      final result = await Process.run(
-        xclipPath,
-        ['-selection', 'clipboard', '-o', '-t', kHtmlMimeType],
-      );
+      final result = await Process.run(xclipPath, [
+        '-selection',
+        'clipboard',
+        '-o',
+        '-t',
+        kHtmlMimeType,
+      ]);
       if (result.exitCode == 0) {
         return (result.stdout as String?)?.trim();
       }
       final processErrorOutput = result.stderr.toString().trim();
-      if (processErrorOutput
-          .startsWith('Error: target $kHtmlMimeType not available')) {
+      if (processErrorOutput.startsWith(
+        'Error: target $kHtmlMimeType not available',
+      )) {
         return null;
       }
       assert(
@@ -113,21 +119,19 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
     final xclipPath = await resolveXclipBinaryPath();
 
     try {
-      final process = await Process.start(
-        xclipPath,
-        [
-          '-selection',
-          'clipboard',
-          '-t',
-          kHtmlMimeType,
-        ],
-      );
+      final process = await Process.start(xclipPath, [
+        '-selection',
+        'clipboard',
+        '-t',
+        kHtmlMimeType,
+      ]);
       process.stdin.writeln(html);
       await process.stdin.close();
       final exitCode = await process.exitCode;
       if (exitCode != 0) {
-        final processErrorOutput =
-            await process.stderr.transform(utf8.decoder).join();
+        final processErrorOutput = await process.stderr
+            .transform(utf8.decoder)
+            .join();
         assert(
           false,
           'Error copying the HTML to clipboard. Exit code: $exitCode\nError output: $processErrorOutput',
@@ -141,23 +145,21 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
     final xclipPath = await resolveXclipBinaryPath();
     final tempClipboardImageFileName =
         'tempClipboardImage-${DateTime.now().millisecondsSinceEpoch}.png';
-    final tempClipboardImage =
-        File(generateTempFilePath(tempClipboardImageFileName));
+    final tempClipboardImage = File(
+      generateTempFilePath(tempClipboardImageFileName),
+    );
 
     try {
       await tempClipboardImage.writeAsBytes(imageBytes);
 
-      final process = await Process.start(
-        xclipPath,
-        [
-          '-selection',
-          'clipboard',
-          '-t',
-          kImagePngMimeType,
-          '-i',
-          tempClipboardImage.path,
-        ],
-      );
+      final process = await Process.start(xclipPath, [
+        '-selection',
+        'clipboard',
+        '-t',
+        kImagePngMimeType,
+        '-i',
+        tempClipboardImage.path,
+      ]);
       final exitCode = await process.exitCode;
       if (exitCode != 0) {
         final errorOutput = await process.stderr.transform(utf8.decoder).join();
@@ -192,8 +194,9 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
         return result.stdout as Uint8List?;
       }
       final processErrorOutput = result.stderr.toString().trim();
-      if (processErrorOutput
-          .startsWith('Error: target $kImagePngMimeType not available')) {
+      if (processErrorOutput.startsWith(
+        'Error: target $kImagePngMimeType not available',
+      )) {
         return null;
       }
       assert(
@@ -215,10 +218,13 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
       if (!hasFilesInClipboard) {
         return [];
       }
-      final result = await Process.run(
-        xclipPath,
-        ['-selection', 'clipboard', '-t', kUriListMimeType, '-o'],
-      );
+      final result = await Process.run(xclipPath, [
+        '-selection',
+        'clipboard',
+        '-t',
+        kUriListMimeType,
+        '-o',
+      ]);
       if (result.exitCode == 0) {
         final output = result.stdout as String?;
         if (output == null) return [];
@@ -228,8 +234,9 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
         }).toList();
       }
       final processErrorOutput = result.stderr.toString().trim();
-      if (processErrorOutput
-          .startsWith('Error: target $kUriListMimeType not available')) {
+      if (processErrorOutput.startsWith(
+        'Error: target $kUriListMimeType not available',
+      )) {
         return [];
       }
       assert(

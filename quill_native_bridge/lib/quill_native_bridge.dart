@@ -13,6 +13,8 @@ export 'package:quill_native_bridge_platform_interface/quill_native_bridge_platf
         GalleryImageSaveOptions,
         ImageSaveResult;
 
+export './src/stub_impl.dart' show QuillNativeBridgeStub;
+
 /// An internal plugin for [`flutter_quill`](https://pub.dev/packages/flutter_quill)
 /// package to access platform-specific APIs.
 ///
