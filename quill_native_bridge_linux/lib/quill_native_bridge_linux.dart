@@ -2,18 +2,17 @@
 // Make sure to update pubspec.yaml to the new location.
 
 import 'dart:convert' show utf8;
-import 'dart:io' show Process, File hide exitCode;
+import 'dart:io' show Process, File;
 
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:quill_native_bridge_platform_interface/internal.dart';
 import 'package:quill_native_bridge_platform_interface/quill_native_bridge_platform_interface.dart';
 
-import 'src/binary_runner.dart';
-import 'src/constants.dart';
 import 'src/image_saver.dart';
 import 'src/mime_types_constants.dart';
 import 'src/temp_file_utils.dart';
+import 'src/xclip_resolver.dart';
 
 /// A Linux implementation of the [QuillNativeBridgePlatform].
 class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
@@ -22,19 +21,30 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
   }
 
   @override
-  Future<bool> isSupported(QuillNativeBridgeFeature feature) async => {
-        QuillNativeBridgeFeature.getClipboardHtml,
-        QuillNativeBridgeFeature.copyHtmlToClipboard,
-        QuillNativeBridgeFeature.copyImageToClipboard,
-        QuillNativeBridgeFeature.getClipboardImage,
-        QuillNativeBridgeFeature.getClipboardFiles,
-        QuillNativeBridgeFeature.saveImage,
-      }.contains(feature);
+  Future<bool> isSupported(QuillNativeBridgeFeature feature) async {
+    final supportedClipboardFeatures = {
+      QuillNativeBridgeFeature.getClipboardHtml,
+      QuillNativeBridgeFeature.copyHtmlToClipboard,
+      QuillNativeBridgeFeature.copyImageToClipboard,
+      QuillNativeBridgeFeature.getClipboardImage,
+      QuillNativeBridgeFeature.getClipboardFiles,
+    };
+
+    if (supportedClipboardFeatures.contains(feature)) {
+      try {
+        await resolveXclipBinaryPath();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    return feature == QuillNativeBridgeFeature.saveImage;
+  }
 
   // TODO: Improve error handling
 
-  // TODO: The xclipFile should always be removed in finally block, extractBinaryFromAsset()
-  //  should be part of the try-catch
+  // TODO: Consider abstracting clipboard provider to support Wayland without xclip
 
   // TODO: Support wayland https://github.com/bugaevc/wl-clipboard.
   //  Need to abstract implementation of xclip first.
@@ -63,7 +73,7 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
 
   @override
   Future<String?> getClipboardHtml() async {
-    final xclipFile = await extractBinaryFromAsset(kXclipAssetFile);
+    final xclipPath = await resolveXclipBinaryPath();
     try {
       // TODO: Write a test case where copying an image and then retrieving HTML
       //  should not throw an exception or unexpected behavior. Not required
@@ -73,13 +83,13 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
       //  avaliable before getting it using: xclip -o -t TARGETS
       final hasHtmlInClipboard = await _hasClipboardItemOfType(
         mimeType: kHtmlMimeType,
-        xclipFilePath: xclipFile.path,
+        xclipFilePath: xclipPath,
       );
       if (!hasHtmlInClipboard) {
         return null;
       }
       final result = await Process.run(
-        xclipFile.path,
+        xclipPath,
         ['-selection', 'clipboard', '-o', '-t', kHtmlMimeType],
       );
       if (result.exitCode == 0) {
@@ -94,19 +104,17 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
         false,
         'Error retrieving the HTML to clipboard. Exit code: ${result.exitCode}\nError output: $processErrorOutput',
       );
-    } finally {
-      await xclipFile.delete();
-    }
+    } finally {}
     return null;
   }
 
   @override
   Future<void> copyHtmlToClipboard(String html) async {
-    final xclipFile = await extractBinaryFromAsset(kXclipAssetFile);
+    final xclipPath = await resolveXclipBinaryPath();
 
     try {
       final process = await Process.start(
-        xclipFile.path,
+        xclipPath,
         [
           '-selection',
           'clipboard',
@@ -125,14 +133,12 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
           'Error copying the HTML to clipboard. Exit code: $exitCode\nError output: $processErrorOutput',
         );
       }
-    } finally {
-      await xclipFile.delete();
-    }
+    } finally {}
   }
 
   @override
   Future<void> copyImageToClipboard(Uint8List imageBytes) async {
-    final xclipFile = await extractBinaryFromAsset(kXclipAssetFile);
+    final xclipPath = await resolveXclipBinaryPath();
     final tempClipboardImageFileName =
         'tempClipboardImage-${DateTime.now().millisecondsSinceEpoch}.png';
     final tempClipboardImage =
@@ -142,7 +148,7 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
       await tempClipboardImage.writeAsBytes(imageBytes);
 
       final process = await Process.start(
-        xclipFile.path,
+        xclipPath,
         [
           '-selection',
           'clipboard',
@@ -161,24 +167,23 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
         );
       }
     } finally {
-      await xclipFile.delete();
       await tempClipboardImage.delete();
     }
   }
 
   @override
   Future<Uint8List?> getClipboardImage() async {
-    final xclipFile = await extractBinaryFromAsset(kXclipAssetFile);
+    final xclipPath = await resolveXclipBinaryPath();
     try {
       final hasImagePngInClipboard = await _hasClipboardItemOfType(
         mimeType: kImagePngMimeType,
-        xclipFilePath: xclipFile.path,
+        xclipFilePath: xclipPath,
       );
       if (!hasImagePngInClipboard) {
         return null;
       }
       final result = await Process.run(
-        xclipFile.path,
+        xclipPath,
         ['-selection', 'clipboard', '-t', kImagePngMimeType, '-o'],
         // Set stdoutEncoding to null. Expecting raw bytes.
         stdoutEncoding: null,
@@ -196,24 +201,22 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
         'Unknown error while retrieving image from the clipboard. Exit code: ${result.exitCode}. Error output $processErrorOutput',
       );
       return null;
-    } finally {
-      await xclipFile.delete();
-    }
+    } finally {}
   }
 
   @override
   Future<List<String>> getClipboardFiles() async {
-    final xclipFile = await extractBinaryFromAsset(kXclipAssetFile);
+    final xclipPath = await resolveXclipBinaryPath();
     try {
       final hasFilesInClipboard = await _hasClipboardItemOfType(
         mimeType: kUriListMimeType,
-        xclipFilePath: xclipFile.path,
+        xclipFilePath: xclipPath,
       );
       if (!hasFilesInClipboard) {
         return [];
       }
       final result = await Process.run(
-        xclipFile.path,
+        xclipPath,
         ['-selection', 'clipboard', '-t', kUriListMimeType, '-o'],
       );
       if (result.exitCode == 0) {
@@ -234,9 +237,7 @@ class QuillNativeBridgeLinux extends QuillNativeBridgePlatform {
         'Unknown error while retrieving image from the clipboard. Exit code: ${result.exitCode}. Error output $processErrorOutput',
       );
       return [];
-    } finally {
-      await xclipFile.delete();
-    }
+    } finally {}
   }
 
   @visibleForTesting
